@@ -1,0 +1,191 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                           String         @id @default(uuid())
+  name                         String         
+  email                        String         @unique
+  password                     String
+  role                         Role           @default(JOB_SEEKER)
+  refreshToken                 String?
+  refreshTokenExpires          DateTime?
+  verificationToken            String?
+  verificationTokenExpires     DateTime?
+  passwordResetToken           String?
+  passwordResetExpires         DateTime? 
+
+  phone                         String?
+  bio                           String?
+  avatar                        String?
+  isVerified                    Boolean        @default(false)
+  isActive                      Boolean        @default(false)
+  
+  ownedCompanies                Company[]
+  jobs                          Job[]          @relation("EmployerJobs")
+  applications                  Application[]  @relation("UserApplication")
+  
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @updatedAt
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([verificationToken])  
+  @@index([passwordResetToken])
+
+}
+
+model Company {
+  id                  String     @id @default(uuid())
+  name                String
+  slug                String     @unique
+  description         String
+  logo                String?
+  website             String?
+  industry            String
+  companySize         String?
+  foundedYear         Int?
+  headquarters        String?
+  email               String?
+  phone               String?
+  socialLinks         Json?    
+  benefits            String[]
+  culture             String?
+  isVerified          Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  ownerId             String
+  owner               User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  jobs                Job[]    @relation("CompanyJobs")
+ 
+  @@index([slug])      
+  @@index([industry])  
+  @@index([ownerId])
+}
+
+model Job {
+  id              String           @id @default(uuid())
+  title           String
+  description     String           @db.Text
+  location        String
+  salary          Float?
+  salaryMax       Float?
+  currency        String?          @default("USD")
+  type            JobType
+  
+  requirements    String?          @db.Text
+  benefits        String[]         @db.Text
+  experienceLevel ExperienceLevel?
+  status          JobStatus        @default(OPEN)
+  expiresAt       DateTime?
+  
+  companyId       String
+  company         Company          @relation("CompanyJobs", fields: [companyId],references: [id],onDelete: Cascade)
+  
+  employerId      String
+  employer        User             @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)              
+  
+  applications    Application[]    @relation("JobApplication")
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([status, type, experienceLevel])
+  @@index([employerId])
+  @@index([companyId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model Application {
+  id              String            @id @default(uuid())
+  
+  jobId           String
+  job             Job               @relation("JobApplication", fields: [jobId], references: [id], onDelete: Cascade)
+  
+  applicantId     String
+  applicant       User              @relation("UserApplication", fields: [applicantId], references: [id], onDelete: Cascade)
+  
+
+  resumeUrl       String
+  resumeFileName  String?
+  coverLetter     String?           @db.Text
+  
+
+  status          ApplicationStatus @default(PENDING)
+  statusHistory   Json?             // Track all status changes
+  
+ 
+  appliedAt       DateTime          @default(now())
+  viewedAt        DateTime?
+  respondedAt     DateTime?
+  updatedAt       DateTime          @updatedAt
+  
+  
+  expectedSalary  Decimal?          @db.Decimal(10, 2)
+  availableFrom   DateTime?
+  notes           String?           @db.Text
+  
+  @@unique([jobId, applicantId])
+  @@index([applicantId])
+  @@index([jobId])
+  @@index([status])
+  @@index([appliedAt])
+}
+
+
+enum Role {
+  JOB_SEEKER
+  EMPLOYER
+  ADMIN
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  FILLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  SHORTLISTED
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ExperienceLevel {
+  ENTRY
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
